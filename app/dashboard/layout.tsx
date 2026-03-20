@@ -35,7 +35,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <p className="text-xs text-muted-foreground">Panel de</p>
           <p className="font-semibold truncate">{profile?.store_name ?? profile?.full_name ?? 'Mi Tienda'}</p>
           <span className="text-[11px] text-yellow-400">
-            {{ seller: 'Vendedor', buyer: 'Comprador', both: 'Vendo y compro' }[profile?.user_type ?? 'seller'] ?? 'Vendedor'}
+            {({ seller: 'Vendedor', buyer: 'Comprador', both: 'Vendo y compro' } as Record<string, string>)[profile?.user_type ?? 'seller'] ?? 'Vendedor'}
           </span>
         </div>
 
