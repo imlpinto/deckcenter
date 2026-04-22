@@ -1,5 +1,5 @@
 // ============================================================
-// TCGMarket - Tipos globales
+// Deckcenter - Tipos globales
 // ============================================================
 
 export type UserType = 'buyer' | 'seller' | 'both'
@@ -140,28 +140,28 @@ export interface TcgdexCard {
     holo: boolean
     firstEdition: boolean
   }
-  tcgplayer?: {
-    url?: string
-    updatedAt?: string
-    prices?: {
-      normal?: TcgdexPrice
-      holofoil?: TcgdexPrice
-      reverseHolofoil?: TcgdexPrice
-      '1stEditionNormal'?: TcgdexPrice
-      '1stEditionHolofoil'?: TcgdexPrice
-    }
-  }
-  cardmarket?: {
-    url?: string
-    updatedAt?: string
-    prices?: {
-      averageSellPrice?: number
-      lowPrice?: number
-      trendPrice?: number
-      avg1?: number
-      avg7?: number
-      avg30?: number
-    }
+  // Los precios están bajo card.pricing (no directamente en card)
+  pricing?: {
+    tcgplayer?: null  // siempre null en TCGdex por ahora
+    cardmarket?: {
+      updated?: string
+      unit?: string
+      idProduct?: number
+      // Normal
+      avg?: number | null
+      low?: number | null
+      trend?: number | null
+      avg1?: number | null
+      avg7?: number | null
+      avg30?: number | null
+      // Holo
+      'avg-holo'?: number | null
+      'low-holo'?: number | null
+      'trend-holo'?: number | null
+      'avg1-holo'?: number | null
+      'avg7-holo'?: number | null
+      'avg30-holo'?: number | null
+    } | null
   }
 }
 

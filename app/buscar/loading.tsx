@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export default function BuscarLoading() {
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8 space-y-6">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <Skeleton className="h-10 max-w-2xl rounded-xl" />
       <Skeleton className="h-6 w-48" />
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">

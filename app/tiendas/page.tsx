@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 export const metadata: Metadata = {
-  title: 'Tiendas Aliadas — TCGMarket',
-  description: 'Puntos de retiro y tiendas físicas aliadas a TCGMarket.',
+  title: 'Tiendas Aliadas — Deckcenter',
+  description: 'Puntos de retiro y tiendas físicas aliadas a Deckcenter.',
 }
 
 export default async function TiendasPage() {
@@ -19,7 +19,7 @@ export default async function TiendasPage() {
     .order('name')
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 space-y-8">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
       {/* Header */}
       <div>

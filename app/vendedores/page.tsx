@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { MapPin, Package, MessageCircle, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
@@ -6,8 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 export const metadata: Metadata = {
-  title: 'Vendedores — TCGMarket',
-  description: 'Conoce a los vendedores verificados de TCGMarket. Cartas TCG con precios competitivos.',
+  title: 'Vendedores — Deckcenter',
+  description: 'Conoce a los vendedores verificados de Deckcenter. Cartas TCG con precios competitivos.',
 }
 
 export default async function VendedoresPage() {
@@ -17,7 +18,7 @@ export default async function VendedoresPage() {
   const { data: sellers } = await supabase
     .from('profiles')
     .select(`
-      id, full_name, store_name, store_slug, whatsapp, location, user_type,
+      id, full_name, store_name, store_slug, whatsapp, location, user_type, avatar_url,
       inventory!inner ( id )
     `)
     .in('user_type', ['seller', 'both'])
@@ -34,6 +35,7 @@ export default async function VendedoresPage() {
       whatsapp: string | null
       location: string | null
       user_type: string
+      avatar_url: string | null
       inventory: { id: string }[]
     }>).reduce<Record<string, {
       id: string
@@ -42,6 +44,7 @@ export default async function VendedoresPage() {
       store_slug: string | null
       whatsapp: string | null
       location: string | null
+      avatar_url: string | null
       cardCount: number
     }>>((acc, row) => {
       if (!acc[row.id]) {
@@ -52,6 +55,7 @@ export default async function VendedoresPage() {
           store_slug: row.store_slug,
           whatsapp: row.whatsapp,
           location: row.location,
+          avatar_url: row.avatar_url,
           cardCount: row.inventory?.length ?? 0,
         }
       } else {
@@ -62,7 +66,7 @@ export default async function VendedoresPage() {
   ).sort((a, b) => b.cardCount - a.cardCount)
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 space-y-8">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
       {/* Header */}
       <div>
@@ -96,7 +100,7 @@ export default async function VendedoresPage() {
           {uniqueSellers.map((seller) => {
             const displayName = seller.store_name ?? seller.full_name ?? 'Vendedor'
             const whatsappUrl = seller.whatsapp
-              ? `https://wa.me/${seller.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola ${displayName}! Vi tu perfil en TCGMarket 🃏`)}`
+              ? `https://wa.me/${seller.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola ${displayName}! Vi tu perfil en Deckcenter 🃏`)}`
               : null
 
             return (
@@ -107,10 +111,22 @@ export default async function VendedoresPage() {
                 {/* Top */}
                 <div className="flex items-start gap-3">
                   {/* Avatar */}
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/15 border border-yellow-400/20">
-                    <span className="text-lg font-bold text-yellow-400">
-                      {displayName.charAt(0).toUpperCase()}
-                    </span>
+                  <div className="relative h-12 w-12 flex-shrink-0 rounded-xl overflow-hidden bg-yellow-400/15 border border-yellow-400/20">
+                    {seller.avatar_url ? (
+                      <Image
+                        src={seller.avatar_url}
+                        alt={displayName}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <span className="text-lg font-bold text-yellow-400">
+                          {displayName.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{displayName}</p>

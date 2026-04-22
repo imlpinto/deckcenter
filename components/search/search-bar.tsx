@@ -129,8 +129,8 @@ export function SearchBar({
       {/* Input */}
       <div className="relative">
         <Search
-          className={`absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground ${
-            isLarge ? 'h-5 w-5 left-4' : 'h-4 w-4'
+          className={`absolute top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none ${
+            isLarge ? 'h-5 w-5 left-4' : 'h-4 w-4 left-3'
           }`}
         />
         <Input

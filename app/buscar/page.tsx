@@ -67,7 +67,7 @@ export default async function BuscarPage({
   const hasPrev = page > 1
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8 space-y-6">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
       {/* Buscador */}
       <div className="max-w-2xl">
@@ -131,13 +131,13 @@ export default async function BuscarPage({
                     )}
 
                     {/* Imagen */}
-                    <div className="relative aspect-[2/3] bg-muted overflow-hidden">
+                    <div className="relative aspect-[5/7] bg-muted overflow-hidden">
                       {imgSrc ? (
                         <Image
                           src={imgSrc}
                           alt={card.name}
                           fill
-                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          className="object-contain transition-transform duration-300 group-hover:scale-105"
                           sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
                           unoptimized
                         />

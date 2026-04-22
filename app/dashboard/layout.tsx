@@ -25,7 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .single()
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] w-full max-w-7xl mx-auto">
+    <div className="flex min-h-[calc(100vh-4rem)] w-full">
 
       {/* Sidebar — solo desktop */}
       <aside className="hidden md:flex w-56 flex-col border-r border-border/40 bg-card/30 px-3 py-6 flex-shrink-0">

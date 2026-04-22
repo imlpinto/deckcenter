@@ -71,23 +71,33 @@ export async function getCardById(apiId: string): Promise<TcgdexCard | null> {
 }
 
 // Extraer precio de mercado de una carta
-// TCGdex incluye precios de TCGPlayer y Cardmarket directamente
+// Los precios están bajo card.pricing.cardmarket (€EUR, Cardmarket)
+// Prioridad: holo trend > holo avg > normal trend > normal avg
 export function extractMarketPrice(card: TcgdexCard): number | null {
-  // Prioridad: TCGPlayer market > Cardmarket trend
-  const tcgPrices = card.tcgplayer?.prices
-  if (tcgPrices) {
-    return (
-      tcgPrices.holofoil?.market ??
-      tcgPrices['1stEditionHolofoil']?.market ??
-      tcgPrices.normal?.market ??
-      tcgPrices['1stEditionNormal']?.market ??
-      tcgPrices.reverseHolofoil?.market ??
-      null
-    )
-  }
+  const cm = card.pricing?.cardmarket
+  if (!cm) return null
+  return (
+    cm['trend-holo'] ??
+    cm['avg-holo'] ??
+    cm.trend ??
+    cm.avg ??
+    null
+  )
+}
 
-  // Fallback: Cardmarket trend price
-  return card.cardmarket?.prices?.trendPrice ?? null
+// Tipo de cambio EUR → USD (Frankfurter API, sin key, cache 1 hora)
+// Fallback a 1.10 si la API falla
+export async function getEurToUsd(): Promise<number> {
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD', {
+      next: { revalidate: 3600 },
+    })
+    if (!res.ok) return 1.10
+    const data = await res.json()
+    return data.rates?.USD ?? 1.10
+  } catch {
+    return 1.10
+  }
 }
 
 // Convertir carta de TCGdex al formato de nuestra DB (tabla tcg_cards)
@@ -105,10 +115,10 @@ export function mapApiCardToDb(card: TcgdexCard) {
     subtypes: card.stage ? [card.stage] : [],
     types: card.types ?? [],
     hp: card.hp ? String(card.hp) : null,
-    tcgplayer_url: card.tcgplayer?.url ?? null,
+    tcgplayer_url: null,  // TCGdex no provee URL de TCGPlayer
     market_price_usd: extractMarketPrice(card),
-    last_price_update: card.tcgplayer?.updatedAt
-      ? new Date(card.tcgplayer.updatedAt).toISOString()
+    last_price_update: card.pricing?.cardmarket?.updated
+      ? new Date(card.pricing.cardmarket.updated).toISOString()
       : null,
   }
 }

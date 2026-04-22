@@ -48,7 +48,14 @@ export async function GET(req: NextRequest) {
       const apiCard: TcgdexCard = await res.json()
       const newPrice = extractMarketPrice(apiCard)
 
-      // Solo actualizar si el precio cambió
+      // Registrar snapshot diario en historial (independiente de si cambió el precio)
+      if (newPrice !== null) {
+        await supabase
+          .from('price_history')
+          .insert({ card_id: card.id, price_usd: newPrice, source: 'tcgplayer' })
+      }
+
+      // Solo actualizar tcg_cards si el precio cambió
       if (newPrice !== card.market_price_usd) {
         await supabase
           .from('tcg_cards')

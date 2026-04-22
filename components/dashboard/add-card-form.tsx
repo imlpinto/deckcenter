@@ -70,9 +70,9 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
       setSelectedCard(card)
       // Auto-activar precio de mercado si la carta lo tiene
       const price =
-        card.tcgplayer?.prices?.holofoil?.market ??
-        card.tcgplayer?.prices?.normal?.market ??
-        card.cardmarket?.prices?.trendPrice ??
+        card.pricing?.cardmarket?.['trend-holo'] ??
+        card.pricing?.cardmarket?.trend ??
+        card.pricing?.cardmarket?.avg ??
         null
       setUseMarketPrice(!!price)
     } catch { setError('No se pudo cargar el detalle de la carta') }
@@ -121,11 +121,11 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
     }
   }
 
-  const marketPrice = selectedCard?.tcgplayer?.prices
-    ? (selectedCard.tcgplayer.prices.holofoil?.market ??
-       selectedCard.tcgplayer.prices.normal?.market ??
-       selectedCard.cardmarket?.prices?.trendPrice ?? null)
-    : null
+  const marketPrice =
+    selectedCard?.pricing?.cardmarket?.['trend-holo'] ??
+    selectedCard?.pricing?.cardmarket?.trend ??
+    selectedCard?.pricing?.cardmarket?.avg ??
+    null
 
   return (
     <div className="space-y-6">

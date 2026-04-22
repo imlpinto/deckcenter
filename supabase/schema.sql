@@ -1,5 +1,5 @@
 -- ============================================================
--- TCGMarket MVP - Esquema PostgreSQL para Supabase
+-- Deckcenter MVP - Esquema PostgreSQL para Supabase
 -- ============================================================
 
 -- Habilitar extensiones
@@ -79,6 +79,107 @@ create index idx_inventory_seller on public.inventory(seller_id);
 create index idx_inventory_card on public.inventory(card_id);
 create index idx_inventory_active on public.inventory(is_active, card_id);
 create index idx_inventory_price on public.inventory(manual_price) where is_active = true;
+
+-- ============================================================
+-- TABLA: price_history
+-- Snapshots diarios del precio de mercado por carta
+-- Alimentado por /api/cron/refresh-prices en cada ejecución
+-- ============================================================
+create table public.price_history (
+  id          uuid default uuid_generate_v4() primary key,
+  card_id     uuid references public.tcg_cards(id) on delete cascade not null,
+  price_usd   decimal(10,2) not null,
+  source      text default 'tcgplayer',   -- 'tcgplayer' | 'cardmarket'
+  recorded_at timestamptz default now()
+);
+
+create index idx_price_history_card on public.price_history(card_id, recorded_at desc);
+
+alter table public.price_history enable row level security;
+
+create policy "Historial de precios es público (lectura)"
+  on public.price_history for select
+  using (true);
+
+create policy "Sistema puede insertar historial de precios"
+  on public.price_history for insert
+  with check (auth.role() = 'authenticated');
+
+-- Migración (si la DB ya existe):
+-- create table public.price_history ( ... ) -- ver arriba
+-- O ejecutar directamente en Supabase SQL Editor
+
+-- ============================================================
+-- TABLA: card_views
+-- Contador de vistas por carta (alimentado desde el cliente)
+-- ============================================================
+create table public.card_views (
+  api_id         text primary key,
+  view_count     integer default 1,
+  last_viewed_at timestamptz default now()
+);
+
+alter table public.card_views enable row level security;
+
+create policy "Vistas de cartas son públicas (lectura)"
+  on public.card_views for select
+  using (true);
+
+-- ============================================================
+-- FUNCIÓN: increment_card_view
+-- Incremento atómico de vista (upsert thread-safe)
+-- ============================================================
+create or replace function public.increment_card_view(p_api_id text)
+returns void as $$
+begin
+  insert into public.card_views (api_id, view_count, last_viewed_at)
+  values (p_api_id, 1, now())
+  on conflict (api_id) do update
+    set view_count     = card_views.view_count + 1,
+        last_viewed_at = now();
+end;
+$$ language plpgsql security definer;
+
+-- ============================================================
+-- FUNCIÓN: get_recommended_cards
+-- Devuelve las cartas más populares de la plataforma.
+-- Orden: más vistas → más stock. Excluye la carta actual.
+-- ============================================================
+create or replace function public.get_recommended_cards(
+  p_exclude_api_id text,
+  p_limit          int default 6
+)
+returns table(
+  api_id           text,
+  name             text,
+  image_url_sm     text,
+  market_price_usd numeric,
+  total_stock      bigint,
+  view_count       bigint
+) as $$
+begin
+  return query
+  select
+    c.api_id,
+    c.name,
+    c.image_url_sm,
+    c.market_price_usd,
+    sum(i.quantity)::bigint                    as total_stock,
+    coalesce(max(cv.view_count), 0)::bigint    as view_count
+  from public.tcg_cards c
+  join public.inventory i
+    on i.card_id = c.id
+   and i.is_active = true
+   and i.quantity > 0
+  left join public.card_views cv
+    on cv.api_id = c.api_id
+  where c.api_id != p_exclude_api_id
+  group by c.api_id, c.name, c.image_url_sm, c.market_price_usd
+  order by coalesce(max(cv.view_count), 0) desc,
+           sum(i.quantity) desc
+  limit p_limit;
+end;
+$$ language plpgsql stable security definer;
 
 -- ============================================================
 -- TABLA: tiendas_aliadas
@@ -270,3 +371,30 @@ where i.is_active = true and i.quantity > 0;
 -- create policy "Usuarios pueden borrar sus propias fotos"
 --   on storage.objects for delete
 --   using (bucket_id = 'card-photos' and auth.uid()::text = (storage.foldername(name))[1]);
+
+-- ============================================================
+-- STORAGE: bucket avatars
+-- Fotos de perfil de vendedores y logos de tiendas
+-- Crear en Supabase > Storage > New bucket
+--   Name: avatars
+--   Public: true
+-- Políticas RLS (ejecutar en SQL Editor):
+-- ============================================================
+-- insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)
+-- on conflict (id) do nothing;
+--
+-- create policy "Avatars son públicos (lectura)"
+--   on storage.objects for select
+--   using (bucket_id = 'avatars');
+--
+-- create policy "Usuarios autenticados pueden subir su avatar"
+--   on storage.objects for insert
+--   with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
+--
+-- create policy "Usuarios pueden actualizar su avatar"
+--   on storage.objects for update
+--   using (bucket_id = 'avatars' and auth.role() = 'authenticated');
+--
+-- create policy "Usuarios pueden borrar su avatar"
+--   on storage.objects for delete
+--   using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
