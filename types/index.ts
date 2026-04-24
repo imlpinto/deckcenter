@@ -101,71 +101,9 @@ export interface InventoryWithDetails {
   seller_location: string | null
 }
 
-// --- TCGdex API (api.tcgdex.net) — Gratuita, sin API key ---
+// --- pokemontcg.io API (api.pokemontcg.io/v2) — Gratuita, opcional API key ---
 
-/** Respuesta resumida al listar/buscar cartas */
-export interface TcgdexCardBrief {
-  id: string         // ej: "swsh3-136"
-  localId: string    // número en el set, ej: "136"
-  name: string
-  image?: string     // URL base — agregar "/high.webp" o "/low.webp"
-}
-
-/** Respuesta completa al obtener una carta por ID */
-export interface TcgdexCard {
-  id: string
-  localId: string
-  name: string
-  image?: string
-  category: 'Pokemon' | 'Trainer' | 'Energy'
-  illustrator?: string
-  rarity?: string
-  hp?: number
-  types?: string[]
-  evolveFrom?: string
-  description?: string
-  stage?: string
-  set: {
-    id: string
-    name: string
-    serie?: { id: string; name: string }
-    cardCount: { total: number; official: number }
-    logo?: string
-    symbol?: string
-    releaseDate?: string
-  }
-  variants?: {
-    normal: boolean
-    reverse: boolean
-    holo: boolean
-    firstEdition: boolean
-  }
-  // Los precios están bajo card.pricing (no directamente en card)
-  pricing?: {
-    tcgplayer?: null  // siempre null en TCGdex por ahora
-    cardmarket?: {
-      updated?: string
-      unit?: string
-      idProduct?: number
-      // Normal
-      avg?: number | null
-      low?: number | null
-      trend?: number | null
-      avg1?: number | null
-      avg7?: number | null
-      avg30?: number | null
-      // Holo
-      'avg-holo'?: number | null
-      'low-holo'?: number | null
-      'trend-holo'?: number | null
-      'avg1-holo'?: number | null
-      'avg7-holo'?: number | null
-      'avg30-holo'?: number | null
-    } | null
-  }
-}
-
-export interface TcgdexPrice {
+export interface PtcgPriceVariant {
   low?: number
   mid?: number
   high?: number
@@ -173,10 +111,79 @@ export interface TcgdexPrice {
   directLow?: number
 }
 
-// Alias para no romper el código existente
-export type PokemonTcgApiCard = TcgdexCard
+export interface PtcgCardSet {
+  id: string
+  name: string
+  series: string
+  printedTotal: number
+  total: number
+  ptcgoCode?: string
+  releaseDate: string
+  images?: { symbol?: string; logo?: string }
+}
+
+/** Campos mínimos devueltos en búsquedas (pokemontcg.io devuelve objetos completos) */
+export interface PtcgCardBrief {
+  id: string           // ej: "sv8pt5-161"
+  name: string
+  number: string       // número en el set, ej: "161"
+  supertype: string    // "Pokémon" | "Trainer" | "Energy"
+  subtypes?: string[]
+  rarity?: string
+  images: { small: string; large: string }
+  set: PtcgCardSet
+}
+
+/** Carta completa con todos los datos */
+export interface PtcgCard extends PtcgCardBrief {
+  hp?: string
+  types?: string[]
+  evolvesFrom?: string
+  abilities?: { name: string; text: string; type: string }[]
+  attacks?: { name: string; cost: string[]; convertedEnergyCost: number; damage: string; text: string }[]
+  weaknesses?: { type: string; value: string }[]
+  resistances?: { type: string; value: string }[]
+  artist?: string
+  flavorText?: string
+  regulationMark?: string
+  legalities?: { unlimited?: string; standard?: string; expanded?: string }
+  tcgplayer?: {
+    url?: string
+    updatedAt?: string
+    prices?: {
+      normal?: PtcgPriceVariant
+      holofoil?: PtcgPriceVariant
+      reverseHolofoil?: PtcgPriceVariant
+      '1stEditionHolofoil'?: PtcgPriceVariant
+      '1stEditionNormal'?: PtcgPriceVariant
+    }
+  }
+  cardmarket?: {
+    url?: string
+    updatedAt?: string   // "2025/01/15"
+    prices?: {
+      averageSellPrice?: number
+      lowPrice?: number
+      trendPrice?: number
+      avg1?: number
+      avg7?: number
+      avg30?: number
+      reverseHoloTrend?: number
+      reverseHoloAvg1?: number
+      reverseHoloAvg7?: number
+      reverseHoloAvg30?: number
+      reverseHoloLow?: number
+      reverseHoloSell?: number
+    }
+  }
+}
+
+// Alias de compatibilidad
+export type TcgdexCard = PtcgCard
+export type TcgdexCardBrief = PtcgCardBrief
+export type PokemonTcgApiCard = PtcgCard
 export interface PokemonTcgApiResponse {
-  data: TcgdexCardBrief[]
+  data: PtcgCardBrief[]
   page: number
   pageSize: number
   count: number

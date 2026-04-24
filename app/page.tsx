@@ -4,7 +4,7 @@ import { ArrowRight, ShieldCheck, Zap, MessageCircle, TrendingUp, Search } from 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { SearchBar } from '@/components/search/search-bar'
-import { getCardById, getCardImageSm } from '@/lib/pokemon-tcg'
+import { getCardById } from '@/lib/pokemon-tcg'
 import { createClient } from '@/lib/supabase/server'
 import { CURATED_CARD_IDS } from '@/lib/curated-cards'
 
@@ -17,7 +17,11 @@ type PopularCard = {
   fromPlatform: boolean
 }
 
-// Cartas más vistas en la plataforma; si no hay suficiente data, mezcla de íconos TCG
+const TRENDING_TARGET = 8
+
+// Cartas más vistas/buscadas en la plataforma este mes.
+// Si no hay suficiente actividad real (< 8 cartas), completa con cartas curadas
+// para siempre mostrar exactamente 8.
 async function getPopularCards(): Promise<PopularCard[]> {
   const supabase = await createClient()
 
@@ -25,7 +29,7 @@ async function getPopularCards(): Promise<PopularCard[]> {
     .from('card_views')
     .select('api_id, view_count, card:tcg_cards!inner(name, image_url_sm, market_price_usd)')
     .order('view_count', { ascending: false })
-    .limit(8)
+    .limit(TRENDING_TARGET)
 
   type Row = {
     api_id: string
@@ -33,38 +37,49 @@ async function getPopularCards(): Promise<PopularCard[]> {
     card: { name: string; image_url_sm: string | null; market_price_usd: number | null }
   }
 
-  if (data && data.length >= 4) {
-    return (data as unknown as Row[]).map(row => ({
-      api_id: row.api_id,
-      name: row.card.name,
-      image_url_sm: row.card.image_url_sm,
-      market_price_usd: row.card.market_price_usd,
-      view_count: row.view_count,
-      fromPlatform: true,
-    }))
-  }
+  const platformCards: PopularCard[] = data && data.length > 0
+    ? (data as unknown as Row[]).map(row => ({
+        api_id: row.api_id,
+        name: row.card.name,
+        image_url_sm: row.card.image_url_sm,
+        market_price_usd: row.card.market_price_usd,
+        view_count: row.view_count,
+        fromPlatform: true,
+      }))
+    : []
 
-  // Fallback: cartas curadas definidas en lib/curated-cards.ts
+  // Si ya tenemos 8 cartas reales, devolver solo esas
+  if (platformCards.length >= TRENDING_TARGET) return platformCards.slice(0, TRENDING_TARGET)
+
+  // Completar con cartas curadas hasta llegar a 8
+  // Excluir IDs que ya están en los datos reales
+  const existingIds = new Set(platformCards.map(c => c.api_id))
+  const needed = TRENDING_TARGET - platformCards.length
+  const candidateIds = CURATED_CARD_IDS.filter(id => !existingIds.has(id))
+
   try {
     const results = await Promise.allSettled(
-      CURATED_CARD_IDS.map(id => getCardById(id))
+      candidateIds.map(id => getCardById(id))
     )
-    return results
+    const curatedCards: PopularCard[] = results
       .filter((r): r is PromiseFulfilledResult<NonNullable<Awaited<ReturnType<typeof getCardById>>>> =>
         r.status === 'fulfilled' && r.value != null
       )
       .map(r => r.value)
-      .filter(card => card.image != null)   // solo cartas con imagen
+      .filter(card => card.images?.small != null)
+      .slice(0, needed)
       .map(card => ({
         api_id: card.id,
         name: card.name,
-        image_url_sm: getCardImageSm(card.image!),
+        image_url_sm: card.images.small,
         market_price_usd: null,
         view_count: 0,
         fromPlatform: false,
       }))
+
+    return [...platformCards, ...curatedCards]
   } catch {
-    return []
+    return platformCards
   }
 }
 
@@ -75,7 +90,7 @@ export default async function HomePage() {
     <div className="flex flex-col">
 
       {/* ===== HERO SECTION ===== */}
-      <section className="relative overflow-hidden -mt-20">
+      <section className="relative -mt-20">
         {/* Fondo con gradiente y grid */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(250,204,21,0.15),rgba(255,255,255,0))]" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:48px_48px]" />
@@ -145,9 +160,9 @@ export default async function HomePage() {
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold">Tendencias en Deckcenter</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {popularCards[0]?.fromPlatform
-                    ? 'Las cartas más buscadas por nuestra comunidad'
-                    : 'Cartas icónicas del TCG'}
+                  {popularCards.some(c => c.fromPlatform)
+                    ? 'Las más buscadas y compradas este mes'
+                    : 'Las más populares del TCG este mes'}
                 </p>
               </div>
               <Link href="/buscar">

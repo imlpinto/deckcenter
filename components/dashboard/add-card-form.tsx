@@ -2,14 +2,13 @@
 
 import { useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Search, Loader2, Plus, X, ImageIcon, Upload } from 'lucide-react'
+import { Search, Loader2, Plus, X, ImageIcon, Upload, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { addToInventory } from '@/lib/actions/inventory'
-import { getCardImageLg } from '@/lib/pokemon-tcg'
-import type { TcgdexCardBrief, TcgdexCard, CardCondition } from '@/types'
+import type { PtcgCardBrief, PtcgCard, CardCondition } from '@/types'
 
 const CONDITIONS: { value: CardCondition; label: string; desc: string }[] = [
   { value: 'NM', label: 'NM', desc: 'Near Mint' },
@@ -21,8 +20,8 @@ const CONDITIONS: { value: CardCondition; label: string; desc: string }[] = [
 
 export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
   const [query, setQuery] = useState('')
-  const [suggestions, setSuggestions] = useState<TcgdexCardBrief[]>([])
-  const [selectedCard, setSelectedCard] = useState<TcgdexCard | null>(null)
+  const [suggestions, setSuggestions] = useState<PtcgCardBrief[]>([])
+  const [selectedCard, setSelectedCard] = useState<PtcgCard | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [useMarketPrice, setUseMarketPrice] = useState(false)
@@ -30,7 +29,10 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
   const [photoMode, setPhotoMode] = useState<'catalog' | 'upload'>('catalog')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [filePreview, setFilePreview] = useState<string | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const MAX_PHOTO_BYTES = 1 * 1024 * 1024 // 1 MB
   const [success, setSuccess] = useState(false)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -40,13 +42,13 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
     setIsSearching(true)
     try {
       const params = new URLSearchParams({
-        name: q.trim(),
-        'sort:field': 'name',
-        'sort:order': 'ASC',
-        'pagination:itemsPerPage': '8',
+        q: `name:${q.trim()}*`,
+        pageSize: '8',
+        orderBy: 'name',
       })
-      const res = await fetch(`https://api.tcgdex.net/v2/en/cards?${params}`)
-      const data: TcgdexCardBrief[] = await res.json()
+      const res = await fetch(`https://api.pokemontcg.io/v2/cards?${params}`)
+      const json = await res.json()
+      const data: PtcgCardBrief[] = json.data ?? []
       setSuggestions(Array.isArray(data) ? data : [])
     } catch { setSuggestions([]) }
     finally { setIsSearching(false) }
@@ -60,19 +62,19 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
     debounceRef.current = setTimeout(() => searchCards(val), 300)
   }
 
-  async function handleSelectCard(brief: TcgdexCardBrief) {
+  async function handleSelectCard(brief: PtcgCardBrief) {
     setSuggestions([])
     setQuery(brief.name)
     setIsSearching(true)
     try {
-      const res = await fetch(`https://api.tcgdex.net/v2/en/cards/${brief.id}`)
-      const card: TcgdexCard = await res.json()
+      const res = await fetch(`https://api.pokemontcg.io/v2/cards/${brief.id}`)
+      const json = await res.json()
+      const card: PtcgCard = json.data
       setSelectedCard(card)
       // Auto-activar precio de mercado si la carta lo tiene
       const price =
-        card.pricing?.cardmarket?.['trend-holo'] ??
-        card.pricing?.cardmarket?.trend ??
-        card.pricing?.cardmarket?.avg ??
+        card.tcgplayer?.prices?.holofoil?.market ??
+        card.tcgplayer?.prices?.normal?.market ??
         null
       setUseMarketPrice(!!price)
     } catch { setError('No se pudo cargar el detalle de la carta') }
@@ -82,6 +84,14 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > MAX_PHOTO_BYTES) {
+      setFileError(`La imagen excede el límite de 1 MB (${(file.size / 1024 / 1024).toFixed(2)} MB). Elige una imagen más pequeña.`)
+      setSelectedFile(null)
+      setFilePreview(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+    setFileError(null)
     setSelectedFile(file)
     setFilePreview(URL.createObjectURL(file))
   }
@@ -89,11 +99,12 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
   function handleRemoveFile() {
     setSelectedFile(null)
     setFilePreview(null)
+    setFileError(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   async function handleSubmit(formData: FormData) {
-    if (!selectedCard) return
+    if (!selectedCard || fileError) return
     setIsSubmitting(true)
     setError(null)
     formData.set('api_id', selectedCard.id)
@@ -112,23 +123,65 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
       setError(result.error)
     } else {
       setSuccess(true)
-      setSelectedCard(null)
-      setQuery('')
-      setPhotoMode('catalog')
-      setSelectedFile(null)
-      setFilePreview(null)
-      setTimeout(() => { setSuccess(false); onSuccess?.() }, 1500)
+      onSuccess?.()
     }
   }
 
+  function handleReset() {
+    setSuccess(false)
+    setError(null)
+    setSelectedCard(null)
+    setQuery('')
+    setPhotoMode('catalog')
+    setSelectedFile(null)
+    setFilePreview(null)
+  }
+
   const marketPrice =
-    selectedCard?.pricing?.cardmarket?.['trend-holo'] ??
-    selectedCard?.pricing?.cardmarket?.trend ??
-    selectedCard?.pricing?.cardmarket?.avg ??
+    selectedCard?.tcgplayer?.prices?.holofoil?.market ??
+    selectedCard?.tcgplayer?.prices?.normal?.market ??
+    selectedCard?.tcgplayer?.prices?.reverseHolofoil?.market ??
     null
+
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-5 py-12 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-400/15 border border-green-400/30">
+          <CheckCircle2 className="h-8 w-8 text-green-400" />
+        </div>
+        <div>
+          <p className="text-lg font-semibold">¡Carta publicada!</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Tu carta ya está visible en tu inventario.
+          </p>
+        </div>
+        <Button
+          onClick={handleReset}
+          className="bg-yellow-400 text-slate-900 hover:bg-yellow-300"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Publicar otra carta
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
+
+      {/* Error global (fuera del form para que sea visible siempre) */}
+      {error && (
+        <div className="flex items-start gap-3 rounded-xl bg-red-400/10 border border-red-400/30 px-4 py-3">
+          <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-red-400">Error al publicar</p>
+            <p className="text-xs text-red-400/80 mt-0.5">{error}</p>
+          </div>
+          <button onClick={() => setError(null)} className="text-red-400/60 hover:text-red-400 transition-colors flex-shrink-0">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Buscador de carta */}
       <div>
@@ -165,13 +218,13 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
                       className="flex w-full items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left"
                     >
                       <div className="h-10 w-8 relative flex-shrink-0 rounded overflow-hidden bg-muted">
-                        {card.image && (
-                          <Image src={`${card.image}/low.webp`} alt={card.name} fill className="object-cover" sizes="32px" unoptimized />
+                        {card.images?.small && (
+                          <Image src={card.images.small} alt={card.name} fill className="object-contain" sizes="32px" unoptimized />
                         )}
                       </div>
                       <div>
                         <p className="text-sm font-medium">{card.name}</p>
-                        <p className="text-xs text-muted-foreground">#{card.localId} · {card.id}</p>
+                        <p className="text-xs text-muted-foreground">#{card.number} · {card.set.name}</p>
                       </div>
                     </button>
                   </li>
@@ -189,11 +242,11 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
           <div className="flex gap-4 rounded-xl bg-muted/30 border border-border/40 p-4">
             {/* Imagen */}
             <div className="relative h-28 w-20 flex-shrink-0 rounded-lg overflow-hidden shadow-lg">
-              {selectedCard.image ? (
+              {selectedCard.images?.large ? (
                 <Image
-                  src={getCardImageLg(selectedCard.image) ?? ''}
+                  src={selectedCard.images.large}
                   alt={selectedCard.name}
-                  fill className="object-cover" sizes="80px" unoptimized
+                  fill className="object-contain" sizes="80px" unoptimized
                 />
               ) : (
                 <div className="h-full bg-muted" />
@@ -207,7 +260,7 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
                 {selectedCard.rarity && (
                   <Badge variant="secondary" className="text-xs">{selectedCard.rarity}</Badge>
                 )}
-                {selectedCard.types?.map(t => (
+                {selectedCard.subtypes?.map(t => (
                   <Badge key={t} variant="outline" className="text-xs">{t}</Badge>
                 ))}
                 {selectedCard.hp && (
@@ -252,16 +305,24 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
               </button>
             </div>
 
-            {photoMode === 'catalog' && selectedCard.image && (
+            {photoMode === 'catalog' && selectedCard.images?.small && (
               <div className="flex items-center gap-3 rounded-lg bg-muted/20 border border-border/40 p-3">
                 <div className="relative h-14 w-10 flex-shrink-0 rounded overflow-hidden">
                   <Image
-                    src={`${selectedCard.image}/low.webp`}
+                    src={selectedCard.images.small}
                     alt={selectedCard.name}
-                    fill className="object-cover" sizes="40px" unoptimized
+                    fill className="object-contain" sizes="40px" unoptimized
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">Se usará la imagen oficial del catálogo TCGdex.</p>
+              </div>
+            )}
+
+            {/* Error de tamaño de archivo */}
+            {fileError && (
+              <div className="flex items-start gap-2.5 rounded-lg bg-red-400/10 border border-red-400/30 px-3 py-2.5">
+                <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-red-400 leading-relaxed">{fileError}</p>
               </div>
             )}
 
@@ -284,7 +345,7 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
                   >
                     <Upload className="h-6 w-6 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">Haz clic para seleccionar una foto</span>
-                    <span className="text-xs text-muted-foreground/60">JPG, PNG, WEBP — máx. 5 MB</span>
+                    <span className="text-xs text-muted-foreground/60">JPG, PNG, WEBP — máx. 1 MB</span>
                   </button>
                 ) : (
                   <div className="relative inline-block">
@@ -371,6 +432,13 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
             </label>
           )}
 
+          {/* Disclaimer precio */}
+          {!useMarketPrice && (
+            <p className="text-xs text-muted-foreground bg-muted/30 border border-border/40 rounded-lg px-3 py-2 leading-relaxed">
+              💡 Si dejas el precio en blanco, tu publicación usará automáticamente el precio de referencia del mercado internacional.
+            </p>
+          )}
+
           {/* Notas opcionales */}
           <div>
             <Label htmlFor="notes" className="mb-1.5 block">
@@ -383,21 +451,10 @@ export function AddCardForm({ onSuccess }: { onSuccess?: () => void }) {
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
-          {success && (
-            <p className="text-sm text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg px-3 py-2">
-              Carta agregada al inventario exitosamente
-            </p>
-          )}
-
           <Button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-yellow-400 text-slate-900 hover:bg-yellow-300"
+            disabled={isSubmitting || !!fileError}
+            className="w-full bg-yellow-400 text-slate-900 hover:bg-yellow-300 disabled:opacity-50"
           >
             {isSubmitting ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</>

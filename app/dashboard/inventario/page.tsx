@@ -28,7 +28,7 @@ export default async function InventarioPage() {
   const activeCount = inventory.filter(i => i.is_active).length
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 w-full">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

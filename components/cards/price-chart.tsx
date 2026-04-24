@@ -10,14 +10,14 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
-import type { TcgdexCard } from '@/types'
+import type { PtcgCard } from '@/types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Period = '7D' | '30D'
 
 interface StoredPoint {
-  price_usd: number   // en realidad EUR (limitación del data source)
+  price_usd: number
   recorded_at: string
 }
 
@@ -26,7 +26,7 @@ interface ChartPoint {
   price: number
 }
 
-type CardmarketData = NonNullable<NonNullable<TcgdexCard['pricing']>['cardmarket']>
+type CardmarketData = NonNullable<NonNullable<PtcgCard['cardmarket']>['prices']>
 
 interface PriceChartProps {
   history: StoredPoint[]
@@ -44,27 +44,27 @@ function validPrice(v: number | null | undefined): v is number {
 }
 
 /**
- * Construye puntos de tendencia a partir de los promedios de Cardmarket.
- * avg30 ≈ hace 30 días, avg7 ≈ hace 7 días, avg1 ≈ ayer, trend = hoy.
- * Solo incluye puntos con precio > 0.
+ * Construye puntos de tendencia a partir de los promedios de Cardmarket (pokemontcg.io).
+ * normal: trendPrice/avg1/avg7/avg30
+ * reverseHolo: reverseHoloTrend/reverseHoloAvg1/7/30
  */
-function buildCmPoints(cm: CmPrices, variant: 'normal' | 'holo', rate = 1): ChartPoint[] {
+function buildCmPoints(cm: CmPrices, variant: 'normal' | 'reverseHolo', rate = 1): ChartPoint[] {
   const now = Date.now()
   const DAY = 86_400_000
 
   const entries: { offset: number; value: number | null | undefined }[] =
-    variant === 'holo'
+    variant === 'reverseHolo'
       ? [
-          { offset: 30, value: cm['avg30-holo'] },
-          { offset: 7,  value: cm['avg7-holo'] },
-          { offset: 1,  value: cm['avg1-holo'] },
-          { offset: 0,  value: cm['trend-holo'] ?? cm['avg-holo'] },
+          { offset: 30, value: cm.reverseHoloAvg30 },
+          { offset: 7,  value: cm.reverseHoloAvg7 },
+          { offset: 1,  value: cm.reverseHoloAvg1 },
+          { offset: 0,  value: cm.reverseHoloTrend ?? cm.reverseHoloSell },
         ]
       : [
           { offset: 30, value: cm.avg30 },
           { offset: 7,  value: cm.avg7 },
           { offset: 1,  value: cm.avg1 },
-          { offset: 0,  value: cm.trend ?? cm.avg },
+          { offset: 0,  value: cm.trendPrice ?? cm.averageSellPrice },
         ]
 
   return entries
@@ -111,14 +111,14 @@ export function PriceChart({ history, cardmarket, eurToUsd = 1 }: PriceChartProp
   const cm = cardmarket ?? null
 
   // Una variante "tiene datos" si genera al menos 2 puntos válidos (precio > 0)
-  const holoPoints  = cm ? buildCmPoints(cm, 'holo',   eurToUsd) : []
+  const holoPoints  = cm ? buildCmPoints(cm, 'reverseHolo', eurToUsd) : []
   const normalPoints = cm ? buildCmPoints(cm, 'normal', eurToUsd) : []
   const hasHolo   = holoPoints.length >= 2
   const hasNormal = normalPoints.length >= 2
 
-  // Inicializar en la variante que tenga datos; si las dos tienen, preferir holo
-  const defaultVariant: 'normal' | 'holo' = hasHolo ? 'holo' : 'normal'
-  const [variant, setVariant] = useState<'normal' | 'holo'>(defaultVariant)
+  // Inicializar en la variante que tenga datos; si las dos tienen, preferir normal
+  const defaultVariant: 'normal' | 'reverseHolo' = hasNormal ? 'normal' : 'reverseHolo'
+  const [variant, setVariant] = useState<'normal' | 'reverseHolo'>(defaultVariant)
 
   // Datos para la gráfica
   const { chartData, isEstimated } = useMemo(() => {
@@ -129,9 +129,9 @@ export function PriceChart({ history, cardmarket, eurToUsd = 1 }: PriceChartProp
     if (!cm) return { chartData: [], isEstimated: true }
     // Usar la variante activa; si no tiene puntos suficientes, caer al otro
     const activeVariant =
-      variant === 'holo' && hasHolo ? 'holo'
+      variant === 'reverseHolo' && hasHolo ? 'reverseHolo'
       : variant === 'normal' && hasNormal ? 'normal'
-      : hasNormal ? 'normal' : 'holo'
+      : hasNormal ? 'normal' : 'reverseHolo'
     const allPoints = buildCmPoints(cm, activeVariant, eurToUsd)
     const filtered = period === '7D' ? allPoints.slice(1) : allPoints
     return { chartData: filtered, isEstimated: true }
@@ -196,14 +196,14 @@ export function PriceChart({ history, cardmarket, eurToUsd = 1 }: PriceChartProp
               {/* Variant toggle (solo si hay holo) */}
               {hasHolo && hasNormal && (
                 <div className="flex gap-1 mr-2">
-                  {(['holo', 'normal'] as const).map(v => (
+                  {(['normal', 'reverseHolo'] as const).map(v => (
                     <button key={v} onClick={() => setVariant(v)}
                       className={`px-2 py-0.5 text-xs rounded transition-colors ${
                         variant === v
                           ? 'bg-purple-400/20 text-purple-300 font-semibold'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}>
-                      {v === 'holo' ? 'Holo' : 'Normal'}
+                      {v === 'reverseHolo' ? 'Rev. Holo' : 'Normal'}
                     </button>
                   ))}
                 </div>
@@ -281,34 +281,30 @@ export function PriceChart({ history, cardmarket, eurToUsd = 1 }: PriceChartProp
           </p>
           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
             <span>Cardmarket · USD</span>
-            {cm.updated && (
-              <span>· {new Date(cm.updated).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })}</span>
-            )}
+            {/* updatedAt viene del nivel padre card.cardmarket, no en prices */}
           </div>
         </div>
 
         <div className="space-y-2">
-          {/* Normal */}
           {hasNormal && (
             <PriceRow
               label="Normal"
-              low={cm.low}
-              avg={cm.avg}
-              trend={cm.trend}
+              low={cm.lowPrice}
+              avg={cm.averageSellPrice}
+              trend={cm.trendPrice}
               avg7={cm.avg7}
               avg30={cm.avg30}
               rate={eurToUsd}
             />
           )}
-          {/* Holo */}
           {hasHolo && (
             <PriceRow
-              label="Holo"
-              low={cm['low-holo']}
-              avg={cm['avg-holo']}
-              trend={cm['trend-holo']}
-              avg7={cm['avg7-holo']}
-              avg30={cm['avg30-holo']}
+              label="Rev. Holo"
+              low={cm.reverseHoloLow}
+              avg={cm.reverseHoloSell}
+              trend={cm.reverseHoloTrend}
+              avg7={cm.reverseHoloAvg7}
+              avg30={cm.reverseHoloAvg30}
               rate={eurToUsd}
               highlight
             />
