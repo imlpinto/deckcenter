@@ -25,7 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .single()
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] w-full max-w-7xl mx-auto">
+    <div className="flex min-h-[calc(100vh-4rem)] w-full">
 
       {/* Sidebar — solo desktop */}
       <aside className="hidden md:flex w-56 flex-col border-r border-border/40 bg-card/30 px-3 py-6 flex-shrink-0">
@@ -35,7 +35,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <p className="text-xs text-muted-foreground">Panel de</p>
           <p className="font-semibold truncate">{profile?.store_name ?? profile?.full_name ?? 'Mi Tienda'}</p>
           <span className="text-[11px] text-yellow-400">
-            {{ seller: 'Vendedor', buyer: 'Comprador', both: 'Vendo y compro' }[profile?.user_type ?? 'seller'] ?? 'Vendedor'}
+            {({ seller: 'Vendedor', buyer: 'Comprador', both: 'Vendo y compro' } as Record<string, string>)[profile?.user_type ?? 'seller'] ?? 'Vendedor'}
           </span>
         </div>
 

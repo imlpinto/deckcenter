@@ -4,7 +4,7 @@ import { Zap } from 'lucide-react'
 export function Footer() {
   return (
     <footer className="mt-auto border-t border-border/40 bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+      <div className="w-full px-4 py-10 sm:px-6 lg:px-8">
 
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
 
@@ -14,7 +14,7 @@ export function Footer() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-400">
                 <Zap className="h-4 w-4 text-slate-900" />
               </div>
-              <span className="font-bold text-gold-gradient">TCGMarket</span>
+              <span className="font-bold text-gold-gradient">Deckcenter</span>
             </Link>
             <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
               El marketplace de cartas coleccionables.
@@ -85,7 +85,7 @@ export function Footer() {
 
         <div className="mt-8 border-t border-border/40 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} TCGMarket. Todos los derechos reservados.
+            © {new Date().getFullYear()} Deckcenter. Todos los derechos reservados.
           </p>
           <p className="text-xs text-muted-foreground">
             Precios de referencia:{' '}

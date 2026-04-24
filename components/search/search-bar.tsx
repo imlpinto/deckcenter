@@ -6,8 +6,7 @@ import Image from 'next/image'
 import { Search, Loader2, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import type { TcgdexCardBrief } from '@/types'
-import { getCardImageSm } from '@/lib/pokemon-tcg'
+import type { PtcgCardBrief } from '@/types'
 
 interface SearchBarProps {
   placeholder?: string
@@ -22,7 +21,7 @@ export function SearchBar({
 }: SearchBarProps) {
   const router = useRouter()
   const [query, setQuery] = useState('')
-  const [suggestions, setSuggestions] = useState<TcgdexCardBrief[]>([])
+  const [suggestions, setSuggestions] = useState<PtcgCardBrief[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
@@ -42,15 +41,15 @@ export function SearchBar({
     setIsLoading(true)
     try {
       const params = new URLSearchParams({
-        name: searchQuery.trim(),
-        'sort:field': 'name',
-        'sort:order': 'ASC',
-        'pagination:itemsPerPage': '8',
+        q: `name:${searchQuery.trim()}*`,
+        pageSize: '8',
+        orderBy: 'name',
       })
-      const res = await fetch(`https://api.tcgdex.net/v2/en/cards?${params}`)
-      if (!res.ok) throw new Error('TCGdex error')
+      const res = await fetch(`https://api.pokemontcg.io/v2/cards?${params}`)
+      if (!res.ok) throw new Error('pokemontcg.io error')
 
-      const data: TcgdexCardBrief[] = await res.json()
+      const json = await res.json()
+      const data: PtcgCardBrief[] = json.data ?? []
       setSuggestions(Array.isArray(data) ? data : [])
       setIsOpen(true)
       setHighlightedIndex(-1)
@@ -129,8 +128,8 @@ export function SearchBar({
       {/* Input */}
       <div className="relative">
         <Search
-          className={`absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground ${
-            isLarge ? 'h-5 w-5 left-4' : 'h-4 w-4'
+          className={`absolute top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none ${
+            isLarge ? 'h-5 w-5 left-4' : 'h-4 w-4 left-3'
           }`}
         />
         <Input
@@ -172,7 +171,6 @@ export function SearchBar({
         >
           <ul className="py-1 max-h-[420px] overflow-y-auto">
             {suggestions.map((card, index) => {
-              const imgSrc = getCardImageSm(card.image)
               return (
                 <li key={`${card.id}-${index}`}>
                   <button
@@ -184,14 +182,14 @@ export function SearchBar({
                   >
                     {/* Imagen miniatura */}
                     <div className="flex-shrink-0 h-12 w-9 relative rounded overflow-hidden bg-muted">
-                      {imgSrc ? (
+                      {card.images?.small ? (
                         <Image
-                          src={imgSrc}
+                          src={card.images.small}
                           alt={card.name}
                           fill
-                          className="object-cover"
+                          className="object-contain"
                           sizes="36px"
-                          unoptimized // TCGdex usa CDN propio, evitar re-optimización
+                          unoptimized
                         />
                       ) : (
                         <div className="h-full w-full bg-muted" />
@@ -202,12 +200,12 @@ export function SearchBar({
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium truncate block">{card.name}</span>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        #{card.localId} · {card.id.split('-')[0].toUpperCase()}
+                        #{card.number} · {card.set.name}
                       </p>
                     </div>
 
                     <Badge variant="secondary" className="text-[10px] flex-shrink-0 hidden sm:flex">
-                      {card.id.split('-')[0]}
+                      {card.set.ptcgoCode ?? card.set.id}
                     </Badge>
                   </button>
                 </li>

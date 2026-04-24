@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import { Package, Plus, TrendingUp, Eye } from 'lucide-react'
+import { Package, TrendingUp, Eye } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { PublishCardButton } from '@/components/dashboard/publish-card-button'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -72,12 +73,7 @@ export default async function DashboardPage() {
             Gestiona tu inventario y sigue tus publicaciones
           </p>
         </div>
-        <Link href="/dashboard/inventario">
-          <Button className="bg-yellow-400 text-slate-900 hover:bg-yellow-300 w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            Publicar carta
-          </Button>
-        </Link>
+        <PublishCardButton />
       </div>
 
       {/* Stats */}
@@ -174,12 +170,7 @@ function EmptyInventory() {
       <p className="text-sm text-muted-foreground mt-1 mb-4">
         Publica tu primera carta en menos de 2 minutos
       </p>
-      <Link href="/dashboard/inventario">
-        <Button size="sm" className="bg-yellow-400 text-slate-900 hover:bg-yellow-300">
-          <Plus className="mr-2 h-4 w-4" />
-          Agregar carta
-        </Button>
-      </Link>
+      <PublishCardButton variant="sm" />
     </div>
   )
 }

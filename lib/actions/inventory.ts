@@ -19,7 +19,10 @@ export async function addToInventory(formData: FormData) {
   const manualPrice = formData.get('manual_price')
     ? parseFloat(formData.get('manual_price') as string)
     : null
-  const useMarketPrice = formData.get('use_market_price') === 'true'
+  // Si no se ingresó precio manual ni se activó "usar precio de mercado",
+  // activar precio de mercado automáticamente como fallback.
+  const useMarketPrice =
+    formData.get('use_market_price') === 'true' || manualPrice === null
   const notes = (formData.get('notes') as string) || null
   const photo = formData.get('photo') as File | null
 
@@ -100,15 +103,25 @@ export async function updateInventoryItem(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado' }
 
+  // Obtener api_id para revalidar la página de la carta
+  const { data: inv } = await supabase
+    .from('inventory')
+    .select('card:tcg_cards!inner(api_id)')
+    .eq('id', id)
+    .eq('seller_id', user.id)
+    .single()
+
   const { error } = await supabase
     .from('inventory')
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('seller_id', user.id) // RLS doble: solo el propio vendedor
+    .eq('seller_id', user.id)
 
   if (error) return { error: error.message }
 
   revalidatePath('/dashboard/inventario')
+  const apiId = (inv?.card as unknown as { api_id: string } | null)?.api_id
+  if (apiId) revalidatePath(`/carta/${apiId}`)
   return { success: true }
 }
 
@@ -117,6 +130,13 @@ export async function removeFromInventory(id: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado' }
+
+  const { data: inv } = await supabase
+    .from('inventory')
+    .select('card:tcg_cards!inner(api_id)')
+    .eq('id', id)
+    .eq('seller_id', user.id)
+    .single()
 
   const { error } = await supabase
     .from('inventory')
@@ -127,6 +147,8 @@ export async function removeFromInventory(id: string) {
   if (error) return { error: error.message }
 
   revalidatePath('/dashboard/inventario')
+  const apiId = (inv?.card as unknown as { api_id: string } | null)?.api_id
+  if (apiId) revalidatePath(`/carta/${apiId}`)
   return { success: true }
 }
 

@@ -22,7 +22,7 @@ export default async function LoginPage({
             <Zap className="h-6 w-6 text-slate-900" />
           </div>
           <h1 className="text-2xl font-bold">Bienvenido de vuelta</h1>
-          <p className="text-sm text-muted-foreground mt-1">Ingresa a tu cuenta TCGMarket</p>
+          <p className="text-sm text-muted-foreground mt-1">Ingresa a tu cuenta Deckcenter</p>
         </div>
 
         {/* Google OAuth */}

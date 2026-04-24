@@ -114,7 +114,7 @@ function buildWhatsappUrl(group: SellerGroup): string {
     .join('\n')
 
   const message = [
-    `¡Hola ${group.storeName ?? group.sellerName}! Vi tus cartas en TCGMarket 🃏`,
+    `¡Hola ${group.storeName ?? group.sellerName}! Vi tus cartas en Deckcenter 🃏`,
     '',
     'Me interesa:',
     itemLines,
@@ -149,7 +149,7 @@ export function buildDirectWhatsappUrl({
   const total = ((priceUsd ?? 0) * quantity).toFixed(2)
 
   const message = [
-    `¡Hola ${storeName ?? sellerName}! Vi tus cartas en TCGMarket 🃏`,
+    `¡Hola ${storeName ?? sellerName}! Vi tus cartas en Deckcenter 🃏`,
     '',
     `Me interesa: ${quantity}x ${cardName} (${condition}) - $${(priceUsd ?? 0).toFixed(2)} USD c/u`,
     `Total: ~$${total} USD`,

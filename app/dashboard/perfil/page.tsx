@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { AvatarUpload } from '@/components/profile/avatar-upload'
+import { LogoUpload } from '@/components/profile/logo-upload'
 
 export const metadata: Metadata = { title: 'Mi Perfil' }
 
@@ -19,14 +21,16 @@ export default async function PerfilPage({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user!.id)
-    .single()
+  const [profileResult, tiendaResult] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user!.id).single(),
+    supabase.from('tiendas_aliadas').select('id, name, logo_url').eq('manager_id', user!.id).eq('is_active', true).maybeSingle(),
+  ])
+
+  const profile = profileResult.data
+  const tienda = tiendaResult.data
 
   return (
-    <div className="max-w-xl space-y-8">
+    <div className="w-full space-y-8">
 
       <div>
         <h1 className="text-2xl font-bold">Mi Perfil</h1>
@@ -46,6 +50,28 @@ export default async function PerfilPage({
         <p className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-4 py-3">
           {params.error}
         </p>
+      )}
+
+      {/* Foto de perfil */}
+      <div className="rounded-xl border border-border/40 bg-card/40 p-5">
+        <h2 className="text-sm font-semibold mb-4">Foto de perfil</h2>
+        <AvatarUpload
+          currentUrl={profile?.avatar_url ?? null}
+          displayName={profile?.store_name ?? profile?.full_name ?? 'U'}
+        />
+      </div>
+
+      {/* Logo de tienda (solo si el usuario es manager) */}
+      {tienda && (
+        <div className="rounded-xl border border-border/40 bg-card/40 p-5">
+          <h2 className="text-sm font-semibold mb-1">Logo de tienda</h2>
+          <p className="text-xs text-muted-foreground mb-4">{tienda.name}</p>
+          <LogoUpload
+            tiendaId={tienda.id}
+            tiendaName={tienda.name}
+            currentUrl={tienda.logo_url ?? null}
+          />
+        </div>
       )}
 
       {/* WhatsApp — aviso si falta */}

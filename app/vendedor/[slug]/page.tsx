@@ -11,7 +11,7 @@ import type { CardCondition } from '@/types'
 // Helper inline para el WhatsApp directo desde perfil
 function makeWhatsappUrl(whatsapp: string, storeName: string) {
   const phone = whatsapp.replace(/\D/g, '')
-  const msg = `¡Hola ${storeName}! Vi tu perfil en TCGMarket y me interesa conocer tu inventario 🃏`
+  const msg = `¡Hola ${storeName}! Vi tu perfil en Deckcenter y me interesa conocer tu inventario 🃏`
   return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
 }
 
@@ -31,7 +31,7 @@ export async function generateMetadata({
   if (!data) return { title: 'Vendedor no encontrado' }
   const name = data.store_name ?? data.full_name ?? 'Vendedor'
   return {
-    title: `${name} — Vendedor en TCGMarket`,
+    title: `${name} — Vendedor en Deckcenter`,
     description: `Compra cartas TCG a ${name}${data.location ? ` en ${data.location}` : ''}. Precios competitivos y checkout por WhatsApp.`,
   }
 }
@@ -55,7 +55,7 @@ export default async function SellerProfilePage({
   // Datos del vendedor
   const { data: seller } = await supabase
     .from('profiles')
-    .select('id, full_name, store_name, store_slug, whatsapp, location, user_type')
+    .select('id, full_name, store_name, store_slug, whatsapp, location, user_type, avatar_url')
     .eq('store_slug', slug)
     .single()
 
@@ -95,16 +95,28 @@ export default async function SellerProfilePage({
   const whatsappUrl = seller.whatsapp ? makeWhatsappUrl(seller.whatsapp, displayName) : null
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 space-y-8">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
       {/* Header del vendedor */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 rounded-2xl border border-border/40 bg-card/40 p-5 sm:p-6">
 
-        {/* Avatar placeholder */}
-        <div className="flex h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 items-center justify-center rounded-2xl bg-yellow-400/20 border border-yellow-400/30">
-          <span className="text-2xl sm:text-3xl font-bold text-yellow-400">
-            {displayName.charAt(0).toUpperCase()}
-          </span>
+        {/* Avatar */}
+        <div className="relative h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 rounded-2xl overflow-hidden bg-yellow-400/20 border border-yellow-400/30">
+          {seller.avatar_url ? (
+            <Image
+              src={seller.avatar_url}
+              alt={displayName}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center">
+              <span className="text-2xl sm:text-3xl font-bold text-yellow-400">
+                {displayName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Info */}
@@ -172,13 +184,13 @@ export default async function SellerProfilePage({
                 <div key={item.id} className="group rounded-xl border border-border/40 bg-card overflow-hidden hover:border-yellow-400/30 transition-all">
                   {/* Imagen */}
                   <Link href={`/carta/${card.id}`}>
-                    <div className="relative aspect-[2/3] bg-muted overflow-hidden cursor-pointer">
+                    <div className="relative aspect-[5/7] bg-muted overflow-hidden cursor-pointer">
                       {card.image_url_sm ? (
                         <Image
                           src={card.image_url_sm}
                           alt={card.name}
                           fill
-                          className="object-cover transition-transform group-hover:scale-105"
+                          className="object-contain transition-transform group-hover:scale-105"
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                           unoptimized
                         />
@@ -243,6 +255,6 @@ function buildWhatsappForItem({
 }) {
   const phone = whatsapp.replace(/\D/g, '')
   const price = priceUsd ? `$${priceUsd.toFixed(2)} USD` : 'precio por confirmar'
-  const msg = `¡Hola ${displayName}! Vi tu perfil en TCGMarket.\n\nMe interesa: 1x ${cardName} (${condition}) - ${price}\n\n¿Está disponible? ¡Gracias!`
+  const msg = `¡Hola ${displayName}! Vi tu perfil en Deckcenter.\n\nMe interesa: 1x ${cardName} (${condition}) - ${price}\n\n¿Está disponible? ¡Gracias!`
   return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
 }
