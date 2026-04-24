@@ -43,10 +43,10 @@ export default async function CartaPage({
   ])
   if (!card) notFound()
 
-  const imgLg = getCardImageLg(card.image)
-  const imgSm = getCardImageSm(card.image)
-  const marketPriceEur = extractMarketPrice(card)
-  const marketPrice = marketPriceEur != null ? marketPriceEur * eurToUsd : null
+  const imgLg = card.images?.large ?? null
+  const imgSm = card.images?.small ?? null
+  // extractMarketPrice ya devuelve USD (TCGPlayer), eurToUsd solo se usa en PriceChart
+  const marketPrice = extractMarketPrice(card)
 
   // 2. Vendedores desde nuestra DB
   const supabase = await createClient()
@@ -211,11 +211,11 @@ export default async function CartaPage({
               {[
                 { label: 'Nombre', value: card.name },
                 { label: 'Set', value: card.set?.name },
-                { label: 'Número', value: card.localId ? `${card.localId}/${card.set?.cardCount?.official}` : null },
+                { label: 'Número', value: card.number ? `${card.number}/${card.set?.total}` : null },
                 { label: 'Rareza', value: card.rarity },
-                { label: 'Categoría', value: card.category },
+                { label: 'Categoría', value: card.supertype },
                 { label: 'HP', value: card.hp ? `${card.hp} HP` : null },
-                { label: 'Ilustrador', value: card.illustrator },
+                { label: 'Ilustrador', value: card.artist },
               ].filter(d => d.value).map(d => (
                 <div key={d.label} className="flex justify-between gap-2">
                   <dt className="text-muted-foreground flex-shrink-0">{d.label}</dt>
@@ -236,7 +236,7 @@ export default async function CartaPage({
             )}
 
             {/* Ataques */}
-            {card.category === 'Pokemon' && (
+            {card.supertype === 'Pokémon' && (
               <div className="pt-1 space-y-1">
                 {card.illustrator && (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -307,7 +307,7 @@ export default async function CartaPage({
           {/* Widget de historial de precios */}
           <PriceChart
             history={priceHistory}
-            cardmarket={card.pricing?.cardmarket}
+            cardmarket={card.cardmarket?.prices ?? null}
             eurToUsd={eurToUsd}
           />
 

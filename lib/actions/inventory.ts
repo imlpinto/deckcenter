@@ -19,7 +19,10 @@ export async function addToInventory(formData: FormData) {
   const manualPrice = formData.get('manual_price')
     ? parseFloat(formData.get('manual_price') as string)
     : null
-  const useMarketPrice = formData.get('use_market_price') === 'true'
+  // Si no se ingresó precio manual ni se activó "usar precio de mercado",
+  // activar precio de mercado automáticamente como fallback.
+  const useMarketPrice =
+    formData.get('use_market_price') === 'true' || manualPrice === null
   const notes = (formData.get('notes') as string) || null
   const photo = formData.get('photo') as File | null
 
